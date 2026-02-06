@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>六次联考成绩智能分析系统</title>
+    <title>联考成绩智能分析系统</title>
     
     <!-- 核心库 CDN -->
     <script crossorigin src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
@@ -21,7 +21,17 @@
         .card-shadow { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); }
         
         /* 表格固定表头 */
-        .sticky-header th { position: sticky; top: 0; z-index: 10; }
+        .table-container { max-height: 75vh; overflow-y: auto; position: relative; }
+        .sticky-header th { 
+            position: sticky; 
+            top: 0; 
+            z-index: 20; 
+            background-color: #f3f4f6;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+        .sticky-col-left { position: sticky; left: 0; z-index: 30; background-color: #fff; }
+        .sticky-col-name { position: sticky; left: 4rem; z-index: 30; background-color: #fff; }
+        .sticky-header th.sticky-col-left, .sticky-header th.sticky-col-name { z-index: 40; background-color: #f3f4f6; }
 
         /* 打印专用样式 */
         @media print {
@@ -34,13 +44,13 @@
             .print-group { break-after: page; page-break-after: always; }
             .print-group:last-child { break-after: auto; page-break-after: auto; }
             
-            /* 每一页强制高度，防止溢出 */
+            /* 单页容器：物理锁定高度，防止溢出 */
             .print-page { 
                 width: 210mm; 
-                height: 296mm; /* A4 高度 297mm，留1mm容错 */
+                height: 296mm; 
                 position: relative; 
                 overflow: hidden; 
-                padding: 15mm 10mm;
+                padding: 12mm 10mm;
                 box-sizing: border-box;
             }
             .print-page-1 { page-break-after: always; }
@@ -110,13 +120,13 @@
         // --- Logic: 智能诊断 ---
         const generateDetailedAnalysis = (student, cutoffs, allStudents) => {
             if (!student || student.scores.every(s => s.total === 0)) return { progress: "数据不足", subjectAnalysis: "数据不足", advice: ["请补充完整数据"] };
+            
             const validScores = student.scores.filter(s => s.total > 0);
             const latest = validScores[validScores.length - 1];
-            const previous = validScores.length > 1 ? validScores[validScores.length - 2] : null;
-            const first = validScores[0];
             const examIdx = latest.examId;
             const currentCutoff = cutoffs[examIdx];
 
+            // 1. 差距分析
             let gapAnalysis = "";
             let gapSpecial = latest.total - currentCutoff.special;
             let gapBachelor = latest.total - currentCutoff.bachelor;
@@ -124,6 +134,7 @@
             else if (gapBachelor >= 0) gapAnalysis = `超本科线 ${gapBachelor.toFixed(1)} 分，距特控线差 ${Math.abs(gapSpecial).toFixed(1)} 分`;
             else gapAnalysis = `距本科线差 ${Math.abs(gapBachelor).toFixed(1)} 分`;
 
+            // 2. 波动归因
             let maxStdDev = -1; let volatileSub = "";
             SUBJECTS.forEach(sub => {
                 const scores = validScores.map(s => s.subjects[sub]).filter(v => v !== undefined && v > 0);
@@ -137,6 +148,7 @@
             });
             let attributionText = volatileSub ? `历次差异最主要来源于【${volatileSub}】，该科成绩起伏较大，是影响总分稳定性的核心因素。` : "各科成绩相对稳定，无明显波动源。";
 
+            // 3. 综合文案
             let progressText = `最新总分 ${latest.total} (${gapAnalysis})。`;
             const classScores = allStudents.map(s => s.scores[examIdx]?.total || 0).filter(t => t > 0);
             const classAvg = classScores.length ? (classScores.reduce((a,b)=>a+b,0)/classScores.length).toFixed(1) : 0;
@@ -168,7 +180,7 @@
                 const passRate = ((passCount / scores.length) * 100).toFixed(1);
                 
                 const fullMark = (['语文','数学','英语'].includes(selectedSub)) ? 150 : 100;
-                const dist = [0,0,0,0,0]; // <60%, 60-70%, 70-80%, 80-90%, >90%
+                const dist = [0,0,0,0,0]; 
                 scores.forEach(s => {
                     const ratio = s / fullMark;
                     if (ratio < 0.6) dist[0]++;
@@ -345,15 +357,15 @@
                     </div>
                     
                     {/* Sticky Table Header Fixed */}
-                    <div className="overflow-x-auto max-h-[70vh]">
+                    <div className="table-container">
                         <table className="w-full text-sm text-left border-collapse sticky-header">
                             <thead className="bg-gray-100 text-gray-700 font-bold border-b-2 border-gray-200 sticky-header">
                                 <tr>
-                                    <th className="px-6 py-4 sticky-col sticky left-0 bg-gray-100 z-20">班排</th>
-                                    <th className="px-6 py-4 z-10 bg-gray-100">年级排名</th>
-                                    <th className="px-6 py-4 sticky-col sticky left-16 bg-gray-100 z-20">姓名</th>
-                                    <th className="px-6 py-4 text-right bg-blue-50/50 text-blue-800 z-10">总分</th>
-                                    {SUBJECTS.map(s => <th key={s} className="px-4 py-4 text-right text-gray-500 font-medium z-10 bg-gray-100">{s}</th>)}
+                                    <th className="px-6 py-4 sticky-col-left sticky-header">班排</th>
+                                    <th className="px-6 py-4 sticky-header">年级排名</th>
+                                    <th className="px-6 py-4 sticky-col-name sticky-header">姓名</th>
+                                    <th className="px-6 py-4 text-right bg-blue-50/50 text-blue-800 sticky-header">总分</th>
+                                    {SUBJECTS.map(s => <th key={s} className="px-6 py-4 text-right text-gray-500 font-medium sticky-header">{s}</th>)}
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
@@ -367,11 +379,11 @@
                                     
                                     return (
                                         <tr key={s.id} onClick={() => onStudentClick(s)} className="hover:bg-blue-50 cursor-pointer transition-colors group">
-                                            <td className={`px-6 py-3 font-mono sticky left-0 bg-white group-hover:bg-blue-50 z-10 ${textClass}`}>{idx + 1}</td>
+                                            <td className={`px-6 py-3 font-mono sticky-col-left bg-white group-hover:bg-blue-50 ${textClass}`}>{idx + 1}</td>
                                             <td className={`px-6 py-3 font-mono ${textClass} opacity-80`}>{sc.gradeRank || '-'}</td>
-                                            <td className={`px-6 py-3 sticky left-16 bg-white group-hover:bg-blue-50 z-10 ${textClass}`}>{s.name}</td>
+                                            <td className={`px-6 py-3 sticky-col-name bg-white group-hover:bg-blue-50 ${textClass}`}>{s.name}</td>
                                             <td className={`px-6 py-3 text-right bg-blue-50/30 group-hover:bg-blue-50 ${textClass}`}>{sc.total}</td>
-                                            {SUBJECTS.map(sub => <td key={sub} className={`px-4 py-3 text-right font-mono ${textClass} opacity-90`}>{sc.subjects[sub] || '-'}</td>)}
+                                            {SUBJECTS.map(sub => <td key={sub} className={`px-6 py-3 text-right font-mono ${textClass} opacity-90`}>{sc.subjects[sub] || '-'}</td>)}
                                         </tr>
                                     ); 
                                 })}
@@ -426,14 +438,10 @@
             const [cutoffs, setCutoffs] = useState(initialCutoffs);
             const [files, setFiles] = useState(Array(6).fill(null));
             const [expandedExamId, setExpandedExamId] = useState(null);
-            
-            // Local state for class name to allow editing before saving
             const [localClassName, setLocalClassName] = useState(className);
-
             const handleCutoffChange = (index, field, value) => { const newCutoffs = [...cutoffs]; newCutoffs[index] = { ...newCutoffs[index], [field]: Number(value) }; setCutoffs(newCutoffs); };
             const handleSubjectLineChange = (examIndex, subject, value) => { const newCutoffs = [...cutoffs]; if (!newCutoffs[examIndex].subjects) newCutoffs[examIndex].subjects = { ...EXAM_CONFIG[examIndex].defaultSubs }; newCutoffs[examIndex].subjects[subject] = Number(value); setCutoffs(newCutoffs); };
             const handleFileChange = (index, e) => { const newFiles = [...files]; newFiles[index] = e.target.files[0]; setFiles(newFiles); };
-            
             const parseAndMerge = (studentMap, rows, index) => { 
                 rows.forEach(row => { 
                     if (!row[0] || row[0].toString().includes('姓名') || row[0].toString().includes('平均分')) return; 
@@ -447,59 +455,12 @@
                     studentMap[id].scores[index] = { examId: index, total: parseFloat(row[2]) || 0, rank: classRank, gradeRank: gradeRank, subjects: { '语文': parseFloat(row[4])||0, '数学': parseFloat(row[6])||0, '英语': parseFloat(row[8])||0, '物理': parseFloat(row[10])||0, '化学': parseFloat(row[12])||0, '生物': parseFloat(row[14])||0, '政治': parseFloat(row[16])||0, '历史': parseFloat(row[18])||0, '地理': parseFloat(row[20])||0 } }; 
                 }); 
             };
-
-            const processFiles = () => { 
-                // Save class name
-                setClassName(localClassName);
-                
-                const studentMap = {}; 
-                let processedCount = 0; 
-                let activeFiles = files.map((f, i) => ({file: f, index: i})).filter(item => item.file); 
-                
-                if (activeFiles.length === 0) { onDataUpdate(null, cutoffs); onClose(); return; } 
-                
-                activeFiles.forEach(({file, index}) => { 
-                    if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) { 
-                        const reader = new FileReader(); 
-                        reader.onload = (e) => { 
-                            const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'}); 
-                            const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1}); 
-                            parseAndMerge(studentMap, rows, index); 
-                            processedCount++; 
-                            if (processedCount === activeFiles.length) { onDataUpdate(Object.values(studentMap), cutoffs); onClose(); } 
-                        }; 
-                        reader.readAsArrayBuffer(file); 
-                    } else { 
-                        Papa.parse(file, { header: false, complete: (res) => { parseAndMerge(studentMap, res.data, index); processedCount++; if (processedCount === activeFiles.length) { onDataUpdate(Object.values(studentMap), cutoffs); onClose(); } } }); 
-                    } 
-                }); 
-            };
-
+            const processFiles = () => { setClassName(localClassName); const studentMap = {}; let processedCount = 0; let activeFiles = files.map((f, i) => ({file: f, index: i})).filter(item => item.file); if (activeFiles.length === 0) { onDataUpdate(null, cutoffs); onClose(); return; } activeFiles.forEach(({file, index}) => { if (file.name.endsWith('.xls') || file.name.endsWith('.xlsx')) { const reader = new FileReader(); reader.onload = (e) => { const workbook = XLSX.read(new Uint8Array(e.target.result), {type: 'array'}); const rows = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {header: 1}); parseAndMerge(studentMap, rows, index); processedCount++; if (processedCount === activeFiles.length) { onDataUpdate(Object.values(studentMap), cutoffs); onClose(); } }; reader.readAsArrayBuffer(file); } else { Papa.parse(file, { header: false, complete: (res) => { parseAndMerge(studentMap, res.data, index); processedCount++; if (processedCount === activeFiles.length) { onDataUpdate(Object.values(studentMap), cutoffs); onClose(); } } }); } }); };
             return (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 overflow-y-auto">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl p-6 my-10">
-                        <div className="flex justify-between items-center mb-6 border-b pb-4"><h2 className="text-2xl font-bold text-gray-800">📊 数据导入与参数设置</h2><button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button></div>
-                        
-                        {/* Class Name Setting */}
-                        <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center gap-4 border border-blue-100">
-                            <div className="font-bold text-blue-800 flex items-center"><Icons.Settings size={18} className="mr-2"/> 全局设置</div>
-                            <div className="flex items-center gap-2">
-                                <label className="text-sm font-bold text-gray-700">班级名称：</label>
-                                <input 
-                                    type="text" 
-                                    value={localClassName} 
-                                    onChange={(e) => setLocalClassName(e.target.value)}
-                                    className="border border-blue-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 font-bold text-gray-700"
-                                    placeholder="例如：高33班"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="grid grid-cols-12 gap-4 text-sm font-bold bg-gray-100 p-3 rounded mb-2"><div className="col-span-2">考试名称</div><div className="col-span-2">特控线 (一本)</div><div className="col-span-2">本科线 (二本)</div><div className="col-span-4">对应数据文件 (CSV/XLS/XLSX)</div><div className="col-span-2 text-center">高级设置</div></div>
-                        <div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">{EXAM_CONFIG.map((exam, idx) => (<div key={exam.id} className="border-b pb-2"><div className="grid grid-cols-12 gap-4 items-center"><div className="col-span-2 text-gray-700 font-medium truncate" title={exam.name}>{exam.name}</div><div className="col-span-2"><input type="number" value={cutoffs[idx].special} onChange={(e) => handleCutoffChange(idx, 'special', e.target.value)} className="w-full border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500"/></div><div className="col-span-2"><input type="number" value={cutoffs[idx].bachelor} onChange={(e) => handleCutoffChange(idx, 'bachelor', e.target.value)} className="w-full border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500"/></div><div className="col-span-4"><input type="file" accept=".csv,.xls,.xlsx" onChange={(e) => handleFileChange(idx, e)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/></div><div className="col-span-2 text-center"><button onClick={() => setExpandedExamId(expandedExamId === idx ? null : idx)} className={`text-xs px-3 py-1 rounded border transition ${expandedExamId === idx ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}><Icons.Settings size={12} className="inline mr-1"/>{expandedExamId === idx ? '收起' : '各科线'}</button></div></div>{expandedExamId === idx && (<div className="mt-3 bg-blue-50 p-3 rounded-lg grid grid-cols-3 md:grid-cols-5 gap-3 animate-fade-in"><div className="col-span-full text-xs text-blue-600 font-bold mb-1">设置 {exam.name} 的各科有效分：</div>{SUBJECTS.map(sub => (<div key={sub} className="flex items-center"><label className="text-xs text-gray-600 mr-2 w-8">{sub}</label><input type="number" value={(cutoffs[idx].subjects || EXAM_CONFIG[idx].defaultSubs)[sub]} onChange={(e) => handleSubjectLineChange(idx, sub, e.target.value)} className="w-16 border rounded px-1 text-sm focus:ring-1 focus:ring-blue-500"/></div>))}</div>)}</div>))}</div>
-                        <div className="mt-8 flex justify-end gap-4 border-t pt-4"><button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button><button onClick={processFiles} className="px-6 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 shadow-lg flex items-center"><Icons.Check size={18} className="mr-2"/> 确认处理</button></div>
-                    </div>
-                </div>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl p-6 my-10"><div className="flex justify-between items-center mb-6 border-b pb-4"><h2 className="text-2xl font-bold text-gray-800">📊 数据导入与参数设置</h2><button onClick={onClose} className="text-gray-500 hover:text-gray-700">✕</button></div>
+                    <div className="mb-6 bg-blue-50 p-4 rounded-lg flex items-center gap-4 border border-blue-100"><div className="font-bold text-blue-800 flex items-center"><Icons.Settings size={18} className="mr-2"/> 全局设置</div><div className="flex items-center gap-2"><label className="text-sm font-bold text-gray-700">班级名称：</label><input type="text" value={localClassName} onChange={(e) => setLocalClassName(e.target.value)} className="border border-blue-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 font-bold text-gray-700" placeholder="例如：高33班"/></div></div>
+                    <div className="grid grid-cols-12 gap-4 text-sm font-bold bg-gray-100 p-3 rounded mb-2"><div className="col-span-2">考试名称</div><div className="col-span-2">特控线 (一本)</div><div className="col-span-2">本科线 (二本)</div><div className="col-span-4">对应数据文件 (CSV/XLS/XLSX)</div><div className="col-span-2 text-center">高级设置</div></div><div className="space-y-3 max-h-[50vh] overflow-y-auto pr-2">{EXAM_CONFIG.map((exam, idx) => (<div key={exam.id} className="border-b pb-2"><div className="grid grid-cols-12 gap-4 items-center"><div className="col-span-2 text-gray-700 font-medium truncate" title={exam.name}>{exam.name}</div><div className="col-span-2"><input type="number" value={cutoffs[idx].special} onChange={(e) => handleCutoffChange(idx, 'special', e.target.value)} className="w-full border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500"/></div><div className="col-span-2"><input type="number" value={cutoffs[idx].bachelor} onChange={(e) => handleCutoffChange(idx, 'bachelor', e.target.value)} className="w-full border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500"/></div><div className="col-span-4"><input type="file" accept=".csv,.xls,.xlsx" onChange={(e) => handleFileChange(idx, e)} className="w-full text-xs text-gray-500 file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"/></div><div className="col-span-2 text-center"><button onClick={() => setExpandedExamId(expandedExamId === idx ? null : idx)} className={`text-xs px-3 py-1 rounded border transition ${expandedExamId === idx ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}><Icons.Settings size={12} className="inline mr-1"/>{expandedExamId === idx ? '收起' : '各科线'}</button></div></div>{expandedExamId === idx && (<div className="mt-3 bg-blue-50 p-3 rounded-lg grid grid-cols-3 md:grid-cols-5 gap-3 animate-fade-in"><div className="col-span-full text-xs text-blue-600 font-bold mb-1">设置 {exam.name} 的各科有效分：</div>{SUBJECTS.map(sub => (<div key={sub} className="flex items-center"><label className="text-xs text-gray-600 mr-2 w-8">{sub}</label><input type="number" value={(cutoffs[idx].subjects || EXAM_CONFIG[idx].defaultSubs)[sub]} onChange={(e) => handleSubjectLineChange(idx, sub, e.target.value)} className="w-16 border rounded px-1 text-sm focus:ring-1 focus:ring-blue-500"/></div>))}</div>)}</div>))}</div><div className="mt-8 flex justify-end gap-4 border-t pt-4"><button onClick={onClose} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded">取消</button><button onClick={processFiles} className="px-6 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700 shadow-lg flex items-center"><Icons.Check size={18} className="mr-2"/> 确认处理</button></div></div></div>
             );
         };
 
@@ -509,28 +470,15 @@
             const [showModal, setShowModal] = useState(false);
             const [view, setView] = useState('dashboard');
             const [selectedStudent, setSelectedStudent] = useState(null);
-            
-            // New State for Class Name
             const [className, setClassName] = useState("高33班");
             
-            // Update document title when className changes
-            useEffect(() => {
-                document.title = `${className}六次联考成绩智能分析系统`;
-            }, [className]);
-
+            useEffect(() => { document.title = `${className}六次联考成绩智能分析系统`; }, [className]);
             const handleDataUpdate = (newStudents, newCutoffs) => { if(newCutoffs) setCutoffs(newCutoffs); if(newStudents) setStudents(newStudents); };
             const handlePrint = () => { if (students === DEMO_STUDENTS && !confirm("当前是演示数据，是否继续打印？")) return; window.print(); };
 
             return (
                 <div className="min-h-screen pb-10">
-                    <DataUploadModal 
-                        isOpen={showModal} 
-                        onClose={() => setShowModal(false)} 
-                        initialCutoffs={cutoffs} 
-                        onDataUpdate={handleDataUpdate}
-                        className={className}
-                        setClassName={setClassName}
-                    />
+                    <DataUploadModal isOpen={showModal} onClose={() => setShowModal(false)} initialCutoffs={cutoffs} onDataUpdate={handleDataUpdate} className={className} setClassName={setClassName} />
                     <nav className="bg-white border-b sticky top-0 z-40 glass-effect no-print px-4 h-16 flex justify-between items-center shadow-sm">
                         <div className="flex items-center text-blue-700 font-bold text-xl tracking-tight">📊 {className}分析系统</div>
                         <div className="flex gap-3">
