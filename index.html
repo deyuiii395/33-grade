@@ -47,15 +47,14 @@
             /* 单页容器：物理锁定高度，防止溢出 */
             .print-page { 
                 width: 210mm; 
-                height: 296mm; 
+                height: 275mm; 
                 position: relative; 
                 overflow: hidden; 
-                padding: 12mm 10mm;
+                padding: 10mm 10mm;
                 box-sizing: border-box;
             }
             .print-page-1 { page-break-after: always; }
-            /* 强制图表可见 */
-            .recharts-wrapper { visibility: visible !important; }
+            .recharts-wrapper { margin: 0 auto; visibility: visible !important; }
             h1, h2, h3, h4, th, td, p, span, div, li { font-weight: bold !important; }
             table { border-collapse: collapse; width: 100%; }
             table, th, td { border: 1px solid #000 !important; }
@@ -491,7 +490,18 @@
             const [selectedStudent, setSelectedStudent] = useState(null);
             const [className, setClassName] = useState("高33班");
             
+            // Allow double-click to edit class name
+            const [isEditingTitle, setIsEditingTitle] = useState(false);
+            const titleInputRef = useRef(null);
+
             useEffect(() => { document.title = `${className}六次联考成绩智能分析系统`; }, [className]);
+            
+            useEffect(() => {
+                if (isEditingTitle && titleInputRef.current) {
+                    titleInputRef.current.focus();
+                }
+            }, [isEditingTitle]);
+
             const handleDataUpdate = (newStudents, newCutoffs) => { if(newCutoffs) setCutoffs(newCutoffs); if(newStudents) setStudents(newStudents); };
             const handlePrint = () => { if (students === DEMO_STUDENTS && !confirm("当前是演示数据，是否继续打印？")) return; window.print(); };
 
@@ -499,7 +509,26 @@
                 <div className="min-h-screen pb-10">
                     <DataUploadModal isOpen={showModal} onClose={() => setShowModal(false)} initialCutoffs={cutoffs} onDataUpdate={handleDataUpdate} className={className} setClassName={setClassName} />
                     <nav className="bg-white border-b sticky top-0 z-40 glass-effect no-print px-4 h-16 flex justify-between items-center shadow-sm">
-                        <div className="flex items-center text-blue-700 font-bold text-xl tracking-tight">📊 {className}分析系统</div>
+                        <div className="flex items-center text-blue-700 font-bold text-xl tracking-tight">
+                            {isEditingTitle ? (
+                                <input 
+                                    ref={titleInputRef}
+                                    type="text" 
+                                    value={className} 
+                                    onChange={(e) => setClassName(e.target.value)} 
+                                    onBlur={() => setIsEditingTitle(false)}
+                                    onKeyDown={(e) => e.key === 'Enter' && setIsEditingTitle(false)}
+                                    className="border border-blue-300 rounded px-2 py-1 text-xl font-bold text-blue-700 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+                            ) : (
+                                <span 
+                                    onDoubleClick={() => setIsEditingTitle(true)} 
+                                    className="cursor-pointer hover:bg-blue-50 px-2 py-1 rounded transition" title="双击修改班级名称"
+                                >
+                                    📊 {className}分析系统
+                                </span>
+                            )}
+                        </div>
                         <div className="flex gap-3">
                             <button onClick={() => setView('dashboard')} className={`px-4 py-2 rounded font-medium text-sm transition ${view==='dashboard'?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-50'}`}>数据大屏</button>
                             <button onClick={() => setView('leaderboard')} className={`px-4 py-2 rounded font-medium text-sm transition ${view==='leaderboard'?'bg-blue-50 text-blue-700':'text-gray-600 hover:bg-gray-50'}`}>成绩总表</button>
